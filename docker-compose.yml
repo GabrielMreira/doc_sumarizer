@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  doc_processor_api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./save_documents:/app/save_documents
+      - ./documentos_metadados.json:/app/documentos_metadados.json
+      - ./indice_invertido.json:/app/indice_invertido.json
+    environment:
+      - PYTHONUNBUFFERED=1
+

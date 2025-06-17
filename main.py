@@ -1,41 +1,65 @@
 import os
 import shutil
-import tempfile
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from typing import Dict, List, Any
 import spacy
-
+import uuid
 import read_doc as rd
+import services
+import index_manager as im
 
 rd.nlp_pt = spacy.load('pt_core_news_sm')
 
+@asynccontextmanager
+async def lifespan_manager(app : FastAPI):
+    im.load_persisted_data()
+    yield
+
 app = FastAPI(title="Document processing API",
               description="API for doc processing and extractition key words",
-              version="0.1.0")
+              version="0.1.0",
+              lifespan=lifespan_manager)
+
 
 @app.post("/process_doc/", response_model=Dict[str, Any])
 async def process_doc_endpoint(file: UploadFile = File(...)):
+    original_file_name = file.filename
+    _, original_extension = os.path.splitext(original_file_name)
+    unique_file_name = f"{uuid.uuid4()}{original_extension}"
+
+    os.makedirs(im.save_doc_path, exist_ok=True)
+
+    path_saved_file = os.path.join(im.save_doc_path, unique_file_name)
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-            shutil.copyfileobj(file.file, temp_file)
-            temp_file_path = temp_file.name
+        with open(path_saved_file, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-            text_extrated = rd.read_document(temp_file_path)
-
-            if not text_extrated or text_extrated.startswith("Erro:"):
-                raise HTTPException(status_code=400, detail=f"Error processing the file {text_extrated}")
-
-            processed_tokens = rd.pre_process_text_with_pos(text_extrated)
-            tuple_key_words = rd.extract_key_word(processed_tokens, 10)
-            key_words = [{"word": w, "frequence": f} for w, f in tuple_key_words]
-            extracted_entities = rd.extract_entities(text_extrated)
-
-            result = {"file_name": file.filename,
-                      "content_type": file.content_type,
-                      "principal_key_words": key_words,
-                      "detected_entities": extracted_entities}
-            return result
-    except HTTPException as e:
-        raise e
+        processed_result = services.process_new_doc(original_name=original_file_name,
+                                                  file_server_path=path_saved_file,
+                                                  content_type=file.content_type or "application/octet-stream")
+        return processed_result
+    except ValueError as ve:
+        raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
+        if os.path.exists(path_saved_file):
+            try:
+                os.remove(path_saved_file)
+            except Exception as e:
+                print(f"Erro deleting file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    finally:
+        if file:
+            await file.close()
+
+@app.get("/buscar/", response_model=List[Dict[str, Any]])
+async def get_docs_endpoint(q: str):
+    if not q:
+        raise HTTPException(status_code=400, detail="Search param requested")
+
+    try:
+        results = services.search_doc(q)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro searching: {str(e)}")

@@ -1,11 +1,8 @@
 import PyPDF2
 import docx
 import os
-import spacy
 from collections import Counter
 import re
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation
 
 nlp_pt = {}
 
