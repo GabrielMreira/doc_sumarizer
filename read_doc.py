@@ -1,8 +1,11 @@
+import tempfile
+
 import PyPDF2
 import docx
 import os
 from collections import Counter
 import re
+import s3_utils
 
 nlp_pt = {}
 
@@ -48,7 +51,19 @@ def pre_process_text_with_pos(text, allowed_classes = ['NOUN', 'PROPN', 'ADJ']):
     print(f"Pre processing finished")
     return clean_tokens
 
-def read_document(file_path):
+def read_document(file_path : str):
+    if file_path.startswith("s3://"):
+        buckec_name, key = file_path.replace("s3://", "").split("/", 1)
+        _,original_extension = os.path.splitext(file_path)
+
+        with tempfile.NamedTemporaryFile(suffix=original_extension) as tmp_file:
+            s3_utils.read_from_s3(origin_file_name=key, temporary_file_path=tmp_file.name)
+            return _read_document_local(tmp_file.name)
+    else:
+        _read_document_local(file_path)
+
+
+def _read_document_local(file_path):
     _, extension = os.path.splitext(file_path)
     extension = extension.lower()
 

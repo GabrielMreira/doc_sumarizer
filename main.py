@@ -25,29 +25,15 @@ app = FastAPI(title="Document processing API",
 
 @app.post("/process_doc/", response_model=Dict[str, Any])
 async def process_doc_endpoint(file: UploadFile = File(...)):
-    original_file_name = file.filename
-    _, original_extension = os.path.splitext(original_file_name)
-    unique_file_name = f"{uuid.uuid4()}{original_extension}"
-
-    os.makedirs(im.save_doc_path, exist_ok=True)
-
-    path_saved_file = os.path.join(im.save_doc_path, unique_file_name)
     try:
-        with open(path_saved_file, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = await file.read()
 
-        processed_result = services.process_new_doc(original_name=original_file_name,
-                                                  file_server_path=path_saved_file,
-                                                  content_type=file.content_type or "application/octet-stream")
+        processed_result = services.process_new_doc(original_name=file.filename,
+                                                  file_content=file_content)
         return processed_result
     except ValueError as ve:
         raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
-        if os.path.exists(path_saved_file):
-            try:
-                os.remove(path_saved_file)
-            except Exception as e:
-                print(f"Erro deleting file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     finally:
         if file:
