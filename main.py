@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from typing import Dict, List, Any
 import spacy
-import uuid
 import read_doc as rd
 import services
 import index_manager as im
