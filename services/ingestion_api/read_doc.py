@@ -1,5 +1,4 @@
 import tempfile
-
 import PyPDF2
 import docx
 import os

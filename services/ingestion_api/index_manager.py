@@ -1,12 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import cast
+from sqlalchemy.dialects.postgresql import insert as pg_insert, JSONB
 import json
-
-from watchfiles import awatch
-
-from .database import Base, engine
-from .models import Document, InvertedIndexTerm
+from database import Base, engine
+from models import Document, InvertedIndexTerm
 
 async def create_tables_db():
     async with engine.begin() as conn:
@@ -33,34 +31,42 @@ async def add_doc_into_idx(session: AsyncSession, doc_id : str, original_file_na
             term=term,
             doc_id=[doc_id]
         ).on_conflict_do_update(index_elements=['term'],
-                                set_={'doc_id': InvertedIndexTerm.doc_id.op('||')(json.dumps([doc_id]))})
+                                set_={'doc_id': InvertedIndexTerm.doc_id.op('||')(cast(json.dumps([doc_id]), JSONB))})
 
         await session.execute(stmt)
 
 
-def search_idx(query_str):
-    global inverted_idx, doc_metadata
+async def search_idx(session : AsyncSession,query_str: str):
     query_terms = [term.lower() for term in query_str.split() if term.strip]
     if not query_terms:
         return []
 
-    docs_per_term = []
-    for term in query_terms:
-        if term in inverted_idx:
-            docs_per_term.append(inverted_idx[term])
+    prob_docs_ids = None
 
-    if not docs_per_term:
+    for term in query_terms:
+        result = await session.execute(select(InvertedIndexTerm.doc_id).where(InvertedIndexTerm.term==term))
+        term_doc_ids = result.scalar_one_or_none()
+
+        if term_doc_ids is None:
+            return []
+
+        term_ids_set = set(term_doc_ids)
+        if prob_docs_ids is None:
+            prob_docs_ids = term_ids_set
+        else:
+            prob_docs_ids.intersection_update(term_ids_set)
+
+    if prob_docs_ids is None:
         return []
 
-    correspond_docs_id = docs_per_term[0]
-    for i in range(1, len(docs_per_term)):
-        correspond_docs_id = correspond_docs_id.intersection(docs_per_term[i])
+    stms_docs = select(Document).where(Document.id.in_(prob_docs_ids))
+    result_docs = await session.execute(stms_docs)
+    finded_docs = result_docs.scalars().all()
 
-    result = []
-    for doc_id in correspond_docs_id:
-        if doc_id in doc_metadata:
-            meta = doc_metadata[doc_id].copy()
-            meta['id'] = doc_id
-            result.append(meta)
-
-    return result
+    return [{
+        "id": doc.id,
+        "original_name": doc.original_name,
+        "storage_path": doc.storage_path,
+        "key_words": doc.key_words,
+        "entities": doc.doc_entities
+    } for doc in finded_docs]

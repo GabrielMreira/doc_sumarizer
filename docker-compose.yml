@@ -1,13 +1,10 @@
 version: '3.8'
 services:
   doc_processor_api:
-    build: .
+    build:
+      context: ./services/ingestion_api
     ports:
       - "8000:8000"
-    volumes:
-      - ./save_documents:/app/save_documents
-      - ./documentos_metadados.json:/app/documentos_metadados.json
-      - ./indice_invertido.json:/app/indice_invertido.json
     environment:
       - PYTHONUNBUFFERED=1
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
