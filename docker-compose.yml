@@ -25,7 +25,7 @@ services:
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_DB}
-      - TRAINING_INTERVAL=60
+      - TRAINING_INTERVAL=3600
     depends_on:
       - db
 
