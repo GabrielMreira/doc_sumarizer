@@ -10,7 +10,7 @@ import services
 import index_manager as im
 from database import get_db
 
-rd.nlp_pt = spacy.load('pt_core_news_sm')
+rd.SPACY_MODEL_PT = spacy.load('pt_core_news_sm')
 
 @asynccontextmanager
 async def lifespan_manager(app : FastAPI):

@@ -15,6 +15,20 @@ services:
     depends_on:
       - db
 
+  ml_trainer:
+    build:
+      context: ./services/ml_trainer
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_DB}
+      - TRAINING_INTERVAL=3600
+    depends_on:
+      - db
+
   db:
     image: postgres:15-alpine
     volumes:

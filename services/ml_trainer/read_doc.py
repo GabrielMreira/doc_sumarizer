@@ -6,7 +6,7 @@ from collections import Counter
 import re
 import s3_utils
 
-SPACY_MODEL_PT  = {}
+SPACY_MODEL_PT = {}
 
 def extract_entities(text):
     print("Extracting named entities")
